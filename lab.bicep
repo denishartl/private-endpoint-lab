@@ -185,30 +185,59 @@ resource resSpokeSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-10-01' =
   }
 }
 
-resource resStaticWebApp 'Microsoft.Web/staticSites@2024-11-01' = {
-  name: 'swa-${uniqueString(resourceGroup().id)}'
-  location: resourceGroup().location
+resource resStorageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
+  name: 'st${uniqueString(resourceGroup().id)}'
+  location: 'westeurope'
   sku: {
-    name: 'Standard'
-    tier: 'Standard'
+    name: 'Standard_LRS'
   }
+  kind: 'StorageV2'
   properties: {
-    enterpriseGradeCdnStatus: 'Disabled'
+    dnsEndpointType: 'Standard'
+    defaultToOAuthAuthentication: false
+    publicNetworkAccess: 'Enabled'
+    allowCrossTenantReplication: false
+    minimumTlsVersion: 'TLS1_2'
+    allowBlobPublicAccess: false
+    allowSharedKeyAccess: true
+    largeFileSharesState: 'Enabled'
+    networkAcls: {
+      bypass: 'AzureServices'
+      virtualNetworkRules: []
+      ipRules: []
+      defaultAction: 'Allow'
+    }
+    supportsHttpsTrafficOnly: true
+    encryption: {
+      requireInfrastructureEncryption: false
+      services: {
+        file: {
+          keyType: 'Account'
+          enabled: true
+        }
+        blob: {
+          keyType: 'Account'
+          enabled: true
+        }
+      }
+      keySource: 'Microsoft.Storage'
+    }
+    accessTier: 'Hot'
   }
 }
 
 resource resPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-10-01' = {
-  name: 'pe-${resStaticWebApp.name}'
+  name: 'pe-${resStorageAccount.name}'
   location: resourceGroup().location
   properties: {
-    customNetworkInterfaceName: 'nic-pe-${resStaticWebApp.name}'
+    customNetworkInterfaceName: 'nic-pe-${resStorageAccount.name}'
     privateLinkServiceConnections: [
       {
-        name: 'pe-${resStaticWebApp.name}'
+        name: 'pe-${resStorageAccount.name}'
         properties: {
-          privateLinkServiceId: resStaticWebApp.id
+          privateLinkServiceId: resStorageAccount.id
           groupIds: [
-            'staticSites'
+            'blob'
           ]
         }
       }
@@ -260,6 +289,11 @@ resource resHubVirtualMachine 'Microsoft.Compute/virtualMachines@2025-04-01' = {
         offer: '0001-com-ubuntu-server-jammy'
         sku: '22_04-lts-gen2'
         version: 'latest'
+      }
+    }
+    diagnosticsProfile: {
+      bootDiagnostics: {
+        enabled: true
       }
     }
   }
